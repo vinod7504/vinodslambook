@@ -5,7 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import Busboy from "busboy";
 import { google } from "googleapis";
-import { MongoClient } from "mongodb";
+import { MongoClient, ServerApiVersion } from "mongodb";
 
 const backendDirectory = dirname(fileURLToPath(import.meta.url));
 
@@ -27,12 +27,24 @@ const COLLECTION_NAME = process.env.MONGODB_COLLECTION || "entries";
 const DRIVE_PARENT_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const MONGODB_SERVER_SELECTION_TIMEOUT_MS = Number(
+  process.env.MONGODB_SERVER_SELECTION_TIMEOUT_MS || 10000
+);
 
 if (!MONGODB_URI) {
   throw new Error("MONGODB_URI is required. Add it to backend/.env or your deployment environment.");
 }
 
-const mongoClient = new MongoClient(MONGODB_URI);
+const mongoClient = new MongoClient(MONGODB_URI, {
+  autoSelectFamily: false,
+  family: 4,
+  serverSelectionTimeoutMS: MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: false,
+    deprecationErrors: true
+  }
+});
 let entriesCollectionPromise;
 let driveClientPromise;
 
@@ -100,14 +112,47 @@ function getAdmissionFolderName(admissionNumber) {
 
 async function getEntriesCollection() {
   if (!entriesCollectionPromise) {
-    entriesCollectionPromise = mongoClient.connect().then(async (client) => {
-      const collection = client.db(DATABASE_NAME).collection(COLLECTION_NAME);
-      await collection.createIndex({ id: 1 }, { unique: true });
-      return collection;
-    });
+    entriesCollectionPromise = mongoClient
+      .connect()
+      .then(async (client) => {
+        const collection = client.db(DATABASE_NAME).collection(COLLECTION_NAME);
+        await collection.createIndex({ id: 1 }, { unique: true });
+        return collection;
+      })
+      .catch((error) => {
+        entriesCollectionPromise = undefined;
+        throw error;
+      });
   }
 
   return entriesCollectionPromise;
+}
+
+async function getHealthPayload(deep = false) {
+  const payload = {
+    ok: true,
+    nodeVersion: process.version,
+    mongoConfigured: Boolean(MONGODB_URI),
+    driveConfigured: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
+  };
+
+  if (!deep) {
+    return payload;
+  }
+
+  try {
+    const collection = await getEntriesCollection();
+    await collection.db.command({ ping: 1 });
+    payload.database = { ok: true };
+  } catch (error) {
+    payload.ok = false;
+    payload.database = {
+      ok: false,
+      message: error.message || "Database connection failed."
+    };
+  }
+
+  return payload;
 }
 
 async function getDriveClient() {
@@ -400,7 +445,8 @@ const server = createServer(async (request, response) => {
 
   try {
     if (request.method === "GET" && url.pathname === "/api/health") {
-      sendJson(response, 200, { ok: true });
+      const payload = await getHealthPayload(url.searchParams.get("deep") === "true");
+      sendJson(response, payload.ok ? 200 : 500, payload);
       return;
     }
 
@@ -466,6 +512,7 @@ const server = createServer(async (request, response) => {
 
     sendJson(response, 404, { message: "Route not found." });
   } catch (error) {
+    console.error(`[${new Date().toISOString()}] ${request.method} ${url.pathname}`, error);
     sendJson(response, 500, { message: error.message || "Server error." });
   }
 });
