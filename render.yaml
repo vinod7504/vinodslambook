@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: vinodslambook
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 24.14.1
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DATABASE
+        value: slam_book
+      - key: MONGODB_COLLECTION
+        value: entries
+      - key: GOOGLE_DRIVE_PARENT_FOLDER_ID
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_FILE
+        sync: false
