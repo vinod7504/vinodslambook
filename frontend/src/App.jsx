@@ -4,6 +4,9 @@ import friendsCover from "./assets/friends-cover.svg";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const ADMIN_USERNAME = "Vinod7504";
 const ADMIN_PASSWORD = "Vinodkumar";
+const SESSION_STORAGE_KEY = "vinodSlamBookSession";
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+const ACTIVITY_EVENTS = ["click", "keydown", "mousemove", "mousedown", "scroll", "touchstart"];
 
 const emptyForm = {
   name: "",
@@ -29,6 +32,145 @@ const emptyForm = {
   photo: "",
   vinodMemoryText: ""
 };
+
+function getBrowserStorage() {
+  try {
+    return typeof window !== "undefined" ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredSessionRecord() {
+  const storage = getBrowserStorage();
+
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const storedValue = storage.getItem(SESSION_STORAGE_KEY);
+    return storedValue ? JSON.parse(storedValue) : null;
+  } catch {
+    storage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+function getSessionForStorage(session) {
+  if (session?.role === "user") {
+    return {
+      role: "user",
+      name: session.name || "",
+      admissionNumber: session.admissionNumber || ""
+    };
+  }
+
+  if (session?.role === "admin") {
+    return {
+      role: "admin",
+      username: ADMIN_USERNAME
+    };
+  }
+
+  return null;
+}
+
+function reviveStoredSession(storedSession) {
+  if (storedSession?.role === "user") {
+    const name = typeof storedSession.name === "string" ? storedSession.name.trim() : "";
+    const admissionNumber =
+      typeof storedSession.admissionNumber === "string" ? storedSession.admissionNumber.trim() : "";
+
+    if (!name || !admissionNumber) {
+      return null;
+    }
+
+    return {
+      role: "user",
+      name,
+      admissionNumber
+    };
+  }
+
+  if (storedSession?.role === "admin") {
+    return {
+      role: "admin",
+      username: ADMIN_USERNAME,
+      password: ADMIN_PASSWORD
+    };
+  }
+
+  return null;
+}
+
+function clearStoredSession() {
+  try {
+    getBrowserStorage()?.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures so logout still clears in-memory state.
+  }
+}
+
+function saveStoredSession(session) {
+  const storage = getBrowserStorage();
+  const storedSession = getSessionForStorage(session);
+
+  if (!storage || !storedSession) {
+    return;
+  }
+
+  try {
+    storage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify({
+        session: storedSession,
+        lastActivity: Date.now()
+      })
+    );
+  } catch {
+    // If storage is unavailable, the active React session still works until refresh.
+  }
+}
+
+function readStoredSession() {
+  const record = getStoredSessionRecord();
+  const lastActivity = Number(record?.lastActivity || 0);
+
+  if (!record || !lastActivity || Date.now() - lastActivity >= SESSION_TIMEOUT_MS) {
+    clearStoredSession();
+    return null;
+  }
+
+  const session = reviveStoredSession(record.session);
+
+  if (!session) {
+    clearStoredSession();
+    return null;
+  }
+
+  saveStoredSession(session);
+  return session;
+}
+
+function getStoredSessionAge() {
+  const record = getStoredSessionRecord();
+  const lastActivity = Number(record?.lastActivity || 0);
+
+  return lastActivity ? Date.now() - lastActivity : Number.POSITIVE_INFINITY;
+}
+
+function buildFormForSession(activeSession) {
+  if (activeSession?.role !== "user") {
+    return emptyForm;
+  }
+
+  return {
+    ...emptyForm,
+    name: activeSession.name,
+    admissionNumber: activeSession.admissionNumber
+  };
+}
 
 function slugify(value) {
   return value
@@ -687,10 +829,10 @@ function EntryPreview({ entry, onNew }) {
 
 export default function App() {
   const [entries, setEntries] = useState([]);
-  const [form, setForm] = useState(emptyForm);
+  const [session, setSession] = useState(() => readStoredSession());
+  const [form, setForm] = useState(() => buildFormForSession(session));
   const [page, setPage] = useState("cover");
   const [direction, setDirection] = useState("forward");
-  const [session, setSession] = useState(null);
   const [loginMode, setLoginMode] = useState("user");
   const [loginValues, setLoginValues] = useState({
     name: "",
@@ -767,18 +909,6 @@ export default function App() {
     setPage(nextPage);
   };
 
-  const buildFormForSession = (activeSession) => {
-    if (activeSession?.role !== "user") {
-      return emptyForm;
-    }
-
-    return {
-      ...emptyForm,
-      name: activeSession.name,
-      admissionNumber: activeSession.admissionNumber
-    };
-  };
-
   const handleLoginModeChange = (nextMode) => {
     setLoginMode(nextMode);
     setLoginError("");
@@ -806,6 +936,7 @@ export default function App() {
       }
 
       setSession(nextSession);
+      saveStoredSession(nextSession);
       setForm(buildFormForSession(nextSession));
       setSelectedId("");
       setPageWithTurn("cover", "forward");
@@ -820,22 +951,98 @@ export default function App() {
       return;
     }
 
-    setSession({
+    const nextSession = {
       role: "admin",
       username: ADMIN_USERNAME,
       password: ADMIN_PASSWORD
-    });
+    };
+
+    setSession(nextSession);
+    saveStoredSession(nextSession);
     setForm(emptyForm);
     setSelectedId("");
     setPageWithTurn("cover", "forward");
   };
 
   const handleLogout = () => {
+    clearStoredSession();
     setSession(null);
     setSelectedId("");
     setForm(emptyForm);
     setPageWithTurn("cover", "back");
   };
+
+  useEffect(() => {
+    if (!session || typeof window === "undefined") {
+      return undefined;
+    }
+
+    let timeoutId;
+    let lastSavedAt = Date.now();
+
+    const logoutForIdle = () => {
+      if (getStoredSessionAge() < SESSION_TIMEOUT_MS) {
+        timeoutId = window.setTimeout(logoutForIdle, SESSION_TIMEOUT_MS - getStoredSessionAge());
+        return;
+      }
+
+      clearStoredSession();
+      setSession(null);
+      setSelectedId("");
+      setForm(emptyForm);
+      setPageWithTurn("cover", "back");
+    };
+
+    const scheduleLogout = (delay = SESSION_TIMEOUT_MS) => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(logoutForIdle, Math.max(0, delay));
+    };
+
+    const recordActivity = () => {
+      const now = Date.now();
+
+      if (now - lastSavedAt > 1000) {
+        saveStoredSession(session);
+        lastSavedAt = now;
+      }
+
+      scheduleLogout();
+    };
+
+    const checkVisibleSession = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      const age = getStoredSessionAge();
+
+      if (age >= SESSION_TIMEOUT_MS) {
+        logoutForIdle();
+        return;
+      }
+
+      scheduleLogout(SESSION_TIMEOUT_MS - age);
+    };
+
+    saveStoredSession(session);
+    scheduleLogout();
+
+    for (const eventName of ACTIVITY_EVENTS) {
+      window.addEventListener(eventName, recordActivity, { passive: true });
+    }
+
+    document.addEventListener("visibilitychange", checkVisibleSession);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+
+      for (const eventName of ACTIVITY_EVENTS) {
+        window.removeEventListener(eventName, recordActivity);
+      }
+
+      document.removeEventListener("visibilitychange", checkVisibleSession);
+    };
+  }, [session]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
