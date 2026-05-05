@@ -3,7 +3,7 @@ import friendsCover from "./assets/friends-cover.svg";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const ADMIN_USERNAME = "Vinod7504";
-const ADMIN_PASSWORD = "Vinod@2004";
+const ADMIN_PASSWORD = "Vinodkumar";
 
 const emptyForm = {
   name: "",
