@@ -110,6 +110,24 @@ function getAdmissionFolderName(admissionNumber) {
   return admissionNumber.replace(/[\\/]/g, "-").trim();
 }
 
+function getFileExtension(filename) {
+  const safeName = String(filename || "").replace(/[\\/]/g, "-").trim();
+  const extensionStart = safeName.lastIndexOf(".");
+
+  if (extensionStart <= 0 || extensionStart === safeName.length - 1) {
+    return "";
+  }
+
+  return safeName.slice(extensionStart);
+}
+
+function getAdmissionFileName(admissionNumber, file, index, totalFiles) {
+  const baseName = getAdmissionFolderName(admissionNumber) || `memory-${index + 1}`;
+  const suffix = totalFiles > 1 ? `-${String(index + 1).padStart(2, "0")}` : "";
+
+  return `${baseName}${suffix}${getFileExtension(file.filename)}`;
+}
+
 async function getEntriesCollection() {
   if (!entriesCollectionPromise) {
     entriesCollectionPromise = mongoClient
@@ -206,6 +224,10 @@ async function readEntries() {
 }
 
 async function getOrCreateAdmissionFolder(admissionNumber) {
+  if (!DRIVE_PARENT_FOLDER_ID) {
+    throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID is required to upload memory files to Google Drive.");
+  }
+
   const drive = await getDriveClient();
   const folderName = getAdmissionFolderName(admissionNumber);
   const escapedName = escapeDriveQueryValue(folderName);
@@ -245,11 +267,10 @@ async function uploadMemoryFilesToDrive(admissionNumber, memoryFiles) {
   const uploadedFiles = [];
 
   for (const [index, file] of memoryFiles.entries()) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const safeName = file.filename.replace(/[\\/]/g, "-") || `memory-${index + 1}`;
+    const driveFileName = getAdmissionFileName(admissionNumber, file, index, memoryFiles.length);
     const uploadedFile = await drive.files.create({
       requestBody: {
-        name: `${timestamp}-${safeName}`,
+        name: driveFileName,
         parents: [folder.id]
       },
       media: {

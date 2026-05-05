@@ -28,16 +28,19 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
 input,
 textarea {
   font: inherit;
+  max-width: 100%;
 }
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:disabled {
@@ -46,8 +49,8 @@ button:disabled {
 }
 
 .appShell {
-  min-height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   position: relative;
   padding: 28px;
   background:
@@ -70,8 +73,8 @@ button:disabled {
 }
 
 .loginShell {
-  min-height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
   position: relative;
   display: grid;
   place-items: center;
@@ -1032,10 +1035,13 @@ button:disabled {
 .ghostButton,
 .deleteButton {
   min-height: 44px;
+  min-width: 0;
   border: 0;
   border-radius: 8px;
   padding: 0 20px;
   font-weight: 900;
+  line-height: 1.12;
+  white-space: normal;
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
@@ -1430,7 +1436,6 @@ button:disabled {
 @media (max-width: 960px) {
   .appShell {
     padding: 18px;
-    overflow: auto;
   }
 
   .sessionBar,
@@ -1441,6 +1446,8 @@ button:disabled {
   .bookLayout {
     min-height: auto;
     grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 18px;
   }
 
   .book,
@@ -1458,36 +1465,94 @@ button:disabled {
 
 @media (max-width: 680px) {
   .appShell {
-    padding: 10px;
+    padding: 12px;
   }
 
   .loginShell {
-    padding: 10px;
+    align-items: start;
+    padding: 12px;
   }
 
   .loginBook {
-    min-height: 660px;
-    padding: 36px 22px;
+    width: 100%;
+    min-height: auto;
+    border-radius: 12px;
+    padding: 34px 22px;
+  }
+
+  .loginBook::before {
+    inset: 18px;
+    border-radius: 10px;
+  }
+
+  .loginBook::after {
+    width: 18px;
+  }
+
+  .loginArtwork {
+    width: min(214px, 70%);
+    margin-bottom: 14px;
+  }
+
+  .loginBook h1 {
+    margin-bottom: 20px;
+    font-size: clamp(3.25rem, 16vw, 4.8rem);
   }
 
   .loginTabs {
     grid-template-columns: 1fr;
+    gap: 7px;
+    margin-bottom: 18px;
+  }
+
+  .authForm {
+    gap: 14px;
+  }
+
+  .authField input {
+    min-height: 46px;
   }
 
   .sessionBar {
     width: 100%;
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+
+  .sessionBar .ghostButton {
+    width: 100%;
+  }
+
+  .sessionBar strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .pageProgress {
     width: 100%;
     grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 12px;
+    padding: 6px;
+  }
+
+  .pageProgress span {
+    height: 32px;
+    gap: 5px;
+    font-size: 0.76rem;
   }
 
   .book {
     min-height: auto;
+    filter: drop-shadow(0 18px 28px rgba(60, 32, 23, 0.2));
+  }
+
+  .book::before {
+    display: none;
   }
 
   .bookSpine {
@@ -1504,32 +1569,73 @@ button:disabled {
   .previewPage {
     min-height: auto;
     border-radius: 12px;
+    overflow: visible;
   }
 
   .coverPage {
-    min-height: 620px;
-    padding: 48px 22px;
+    min-height: clamp(500px, calc(100dvh - 176px), 620px);
+    gap: 13px;
+    padding: 42px 22px 30px;
+  }
+
+  .coverPattern {
+    inset: 20px;
+    border-radius: 10px;
+  }
+
+  .coverPattern::before {
+    inset: 14px;
+  }
+
+  .coverPattern::after {
+    inset: 30px;
+  }
+
+  .coverArtwork {
+    width: min(230px, 72%);
+    max-height: 132px;
+  }
+
+  .coverPage h1 {
+    font-size: clamp(3.5rem, 17vw, 5.5rem);
+  }
+
+  .coverSubtitle {
+    max-width: 280px;
+    font-size: 1rem;
+  }
+
+  .coverFoot {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    margin-top: 2px;
   }
 
   .paperPage,
   .previewPage {
-    padding: 22px;
+    padding: 22px 18px;
   }
 
   .pageHeading {
-    padding: 134px 0 22px;
+    padding: 122px 0 22px;
   }
 
   .memoryPage .pageHeading {
     padding: 4px 0 22px;
   }
 
+  .pageHeading h2 {
+    font-size: clamp(2rem, 11vw, 3.25rem);
+    overflow-wrap: anywhere;
+  }
+
   .photoPicker,
   .photoFrame {
-    left: 22px;
+    left: 18px;
     right: auto;
-    top: 22px;
-    width: 100px;
+    top: 18px;
+    width: 96px;
   }
 
   .formGrid,
@@ -1538,15 +1644,31 @@ button:disabled {
   .detailGrid.compact,
   .previewFacts {
     grid-template-columns: 1fr;
+    gap: 14px;
     padding-left: 0;
     padding-right: 0;
   }
 
+  .field input,
+  .field textarea {
+    min-height: 44px;
+    padding: 10px 7px;
+  }
+
+  .field textarea {
+    min-height: 96px;
+  }
+
+  .memoryForm .fieldWide textarea {
+    min-height: 132px;
+  }
+
   .memoryMediaPicker {
-    min-height: 220px;
+    min-height: 190px;
   }
 
   .memorySavedContent {
+    gap: 14px;
     padding-left: 0;
     padding-right: 0;
   }
@@ -1557,8 +1679,15 @@ button:disabled {
   }
 
   .pageActions {
+    flex-wrap: wrap;
+    gap: 10px;
     padding-left: 0;
     padding-right: 0;
+  }
+
+  .pageActions > button,
+  .previewActions > button {
+    flex: 1 1 132px;
   }
 
   .primaryButton,
@@ -1567,9 +1696,68 @@ button:disabled {
     padding: 0 14px;
   }
 
+  .memoryMediaMeta {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mediaRemoveButton {
+    width: 100%;
+  }
+
+  .memoryMediaGrid,
+  .memoryMediaDisplay {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .memoryMediaTile strong,
+  .savedMemoryFile strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .savedMemoryFile img,
+  .savedMemoryFile video,
+  .savedMemoryIcon {
+    max-height: none;
+  }
+
+  .savedShelf {
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .savedHeader {
+    padding: 14px 14px 10px;
+  }
+
+  .savedHeader p {
+    font-size: 1.35rem;
+  }
+
+  .savedList {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 12px 14px;
+    scroll-snap-type: x proximity;
+  }
+
+  .savedEntry {
+    flex: 0 0 min(270px, 82vw);
+    scroll-snap-align: start;
+  }
+
+  .deleteButton {
+    width: calc(100% - 24px);
+  }
+
   .previewHeader {
     grid-template-columns: 86px 1fr;
     gap: 12px;
+    margin-bottom: 20px;
   }
 
   .previewHeader img,
@@ -1577,4 +1765,173 @@ button:disabled {
     width: 86px;
   }
 
+  .previewHeader h2,
+  .emptyPreview h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .signature {
+    font-size: 1.6rem;
+    text-align: left;
+  }
+}
+
+@media (max-width: 430px) {
+  .appShell,
+  .loginShell {
+    padding: 8px;
+  }
+
+  .loginBook {
+    padding: 30px 16px;
+  }
+
+  .loginBook::before {
+    inset: 12px;
+  }
+
+  .loginArtwork {
+    width: min(190px, 72%);
+  }
+
+  .loginBook h1 {
+    font-size: clamp(2.9rem, 17vw, 4rem);
+  }
+
+  .bookLayout {
+    gap: 12px;
+  }
+
+  .sessionBar,
+  .pageProgress {
+    border-radius: 8px;
+  }
+
+  .pageProgress span {
+    font-size: 0.72rem;
+  }
+
+  .pageProgress i {
+    width: 6px;
+  }
+
+  .coverPage {
+    min-height: clamp(460px, calc(100dvh - 162px), 560px);
+    padding: 36px 16px 24px;
+  }
+
+  .coverPattern {
+    inset: 14px;
+  }
+
+  .coverPattern::before {
+    inset: 10px;
+  }
+
+  .coverPattern::after {
+    inset: 22px;
+  }
+
+  .coverArtwork {
+    width: min(190px, 70%);
+    max-height: 108px;
+  }
+
+  .coverPage h1 {
+    font-size: clamp(3rem, 18vw, 4.4rem);
+  }
+
+  .paperPage,
+  .previewPage {
+    padding: 18px 14px;
+  }
+
+  .pageHeading {
+    padding: 108px 0 18px;
+  }
+
+  .memoryPage .pageHeading {
+    padding-top: 2px;
+  }
+
+  .pageHeading h2 {
+    font-size: clamp(1.9rem, 12vw, 2.85rem);
+  }
+
+  .photoPicker,
+  .photoFrame {
+    left: 14px;
+    top: 14px;
+    width: 84px;
+  }
+
+  .photoPicker span,
+  .photoFrame span {
+    font-size: 0.72rem;
+  }
+
+  .photoPicker strong,
+  .photoFrame strong {
+    font-size: 1.08rem;
+  }
+
+  .formGrid,
+  .detailGrid,
+  .memorySavedContent {
+    padding-bottom: 12px;
+  }
+
+  .detailValue strong {
+    min-height: 42px;
+    padding: 9px 7px;
+  }
+
+  .memoryMediaPicker {
+    min-height: 164px;
+  }
+
+  .memoryMediaPicker strong::before {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 8px;
+  }
+
+  .memoryTextCard {
+    padding: 13px;
+  }
+
+  .memoryTextCard p {
+    font-size: 0.98rem;
+  }
+
+  .pageActions,
+  .previewActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryButton,
+  .ghostButton,
+  .deleteButton,
+  .driveLink {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .deleteButton {
+    width: calc(100% - 24px);
+  }
+
+  .previewHeader {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .previewHeader img,
+  .previewHeader > div:first-child {
+    width: 72px;
+  }
+
+  .previewHeader h2 {
+    font-size: clamp(1.9rem, 11vw, 2.7rem);
+  }
 }
