@@ -27,11 +27,8 @@ const emptyForm = {
   secretWish: "",
   signature: "",
   photo: "",
-  vinodMemoryText: "",
-  vinodMemoryFiles: []
+  vinodMemoryText: ""
 };
-
-const MAX_MEMORY_MEDIA_BYTES = 100 * 1024 * 1024;
 
 function slugify(value) {
   return value
@@ -79,23 +76,9 @@ function getEntries() {
 }
 
 function createEntry(entry) {
-  const formData = new FormData();
-
-  for (const [key, value] of Object.entries(entry)) {
-    if (key === "vinodMemoryFiles") {
-      continue;
-    }
-
-    formData.append(key, value || "");
-  }
-
-  for (const memoryFile of entry.vinodMemoryFiles) {
-    formData.append("vinodMemoryFiles", memoryFile.file, memoryFile.name);
-  }
-
   return apiRequest("/api/entries", {
     method: "POST",
-    body: formData
+    body: JSON.stringify(entry)
   });
 }
 
@@ -167,121 +150,6 @@ function PhotoFrame({ photo }) {
           <strong>Photo</strong>
         </span>
       )}
-    </div>
-  );
-}
-
-function formatFileSize(size) {
-  if (!size) {
-    return "";
-  }
-
-  if (size < 1024 * 1024) {
-    return `${Math.max(1, Math.round(size / 1024))} KB`;
-  }
-
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function getSavedMemoryFiles(entry) {
-  if (Array.isArray(entry?.vinodMemoryFiles) && entry.vinodMemoryFiles.length > 0) {
-    return entry.vinodMemoryFiles;
-  }
-
-  if (entry?.vinodMemoryMedia) {
-    return [
-      {
-        driveFileId: "legacy-memory-media",
-        name: entry.vinodMemoryMediaName || "Memory media",
-        mimeType: entry.vinodMemoryMediaType || "",
-        previewUrl: entry.vinodMemoryMedia
-      }
-    ];
-  }
-
-  return [];
-}
-
-function MemoryMediaPicker({ files, onMediaChange, onRemove, onClear }) {
-  return (
-    <div className="memoryMediaField fieldWide">
-      <span>Images or Videos</span>
-      <label className={`memoryMediaPicker ${files.length > 0 ? "hasMedia" : ""}`}>
-        <input multiple type="file" accept="image/*,video/*" onChange={onMediaChange} />
-        <strong>Add Images/Videos</strong>
-      </label>
-      {files.length > 0 ? (
-        <div className="memoryMediaMeta">
-          <small>{files.length} file{files.length === 1 ? "" : "s"} selected</small>
-          <button className="ghostButton mediaRemoveButton" onClick={onClear} type="button">
-            Clear All
-          </button>
-        </div>
-      ) : null}
-      {files.length > 0 ? (
-        <div className="memoryMediaGrid">
-          {files.map((memoryFile) => (
-            <article className="memoryMediaTile" key={memoryFile.id}>
-              {memoryFile.type.startsWith("video/") ? (
-                <video src={memoryFile.previewUrl} controls />
-              ) : (
-                <img src={memoryFile.previewUrl} alt={memoryFile.name} />
-              )}
-              <div>
-                <strong>{memoryFile.name}</strong>
-                <small>{formatFileSize(memoryFile.size)}</small>
-              </div>
-              <button
-                className="ghostButton mediaRemoveButton"
-                onClick={() => onRemove(memoryFile.id)}
-                type="button"
-              >
-                Remove
-              </button>
-            </article>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MemoryMediaDisplay({ entry }) {
-  const files = getSavedMemoryFiles(entry);
-
-  if (files.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="memoryMediaDisplay">
-      {files.map((file) => (
-        <article className="savedMemoryFile" key={file.driveFileId || file.previewUrl || file.name}>
-          {file.previewUrl ? (
-            file.mimeType?.startsWith("video/") ? (
-              <video src={file.previewUrl} controls />
-            ) : (
-              <img src={file.previewUrl} alt={file.name || "Memory with Vinod"} />
-            )
-          ) : file.thumbnailLink ? (
-            <img src={file.thumbnailLink} alt={file.name || "Memory with Vinod"} />
-          ) : (
-            <div className="savedMemoryIcon">{file.mimeType?.startsWith("video/") ? "Video" : "Image"}</div>
-          )}
-          <div>
-            <strong>{file.originalName || file.name || "Memory media"}</strong>
-            <small>
-              {file.folderName ? `Drive folder: ${file.folderName}` : "Saved memory media"}
-              {file.size ? ` - ${formatFileSize(file.size)}` : ""}
-            </small>
-          </div>
-          {file.webViewLink ? (
-            <a className="driveLink" href={file.webViewLink} rel="noreferrer" target="_blank">
-              Open in Drive
-            </a>
-          ) : null}
-        </article>
-      ))}
     </div>
   );
 }
@@ -583,9 +451,6 @@ function PageThree({
   saving,
   onBack,
   onChange,
-  onMediaChange,
-  onMediaClear,
-  onMediaRemove,
   onSave
 }) {
   return (
@@ -601,12 +466,6 @@ function PageThree({
           value={form.vinodMemoryText}
           onChange={onChange}
           placeholder="A moment, a message, or anything you want Vinod to remember"
-        />
-        <MemoryMediaPicker
-          files={form.vinodMemoryFiles}
-          onClear={onMediaClear}
-          onMediaChange={onMediaChange}
-          onRemove={onMediaRemove}
         />
       </div>
       {error ? <p className="formError">{error}</p> : null}
@@ -714,7 +573,7 @@ function SavedPageThree({ entry, onBack, onNew }) {
     return <SavedPageEmpty onNew={onNew} />;
   }
 
-  const hasMemory = entry.vinodMemoryText || getSavedMemoryFiles(entry).length > 0;
+  const hasMemory = Boolean(entry.vinodMemoryText);
 
   return (
     <section className="paperPage savedReader memoryPage">
@@ -729,7 +588,6 @@ function SavedPageThree({ entry, onBack, onNew }) {
             <p>{entry.vinodMemoryText}</p>
           </div>
         ) : null}
-        <MemoryMediaDisplay entry={entry} />
         {!hasMemory ? <p className="emptyState">No memory added.</p> : null}
       </div>
       <div className="pageActions">
@@ -998,75 +856,6 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
-  const handleMemoryMediaChange = (event) => {
-    const selectedFiles = Array.from(event.target.files || []);
-
-    if (selectedFiles.length === 0) {
-      return;
-    }
-
-    const nextFiles = [];
-
-    for (const file of selectedFiles) {
-      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-        setError("Please choose only image or video files for your memory with Vinod.");
-        event.target.value = "";
-        return;
-      }
-
-      if (file.size > MAX_MEMORY_MEDIA_BYTES) {
-        setError("Please choose image or video files under 100 MB each.");
-        event.target.value = "";
-        return;
-      }
-
-      nextFiles.push({
-        id:
-          typeof crypto !== "undefined" && crypto.randomUUID
-            ? crypto.randomUUID()
-            : `${file.name}-${file.lastModified}-${Math.random()}`,
-        file,
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        previewUrl: URL.createObjectURL(file)
-      });
-    }
-
-    setForm((current) => ({
-      ...current,
-      vinodMemoryFiles: [...current.vinodMemoryFiles, ...nextFiles]
-    }));
-    setError("");
-    event.target.value = "";
-  };
-
-  const handleMemoryMediaClear = () => {
-    setForm((current) => {
-      current.vinodMemoryFiles.forEach((memoryFile) => URL.revokeObjectURL(memoryFile.previewUrl));
-
-      return {
-        ...current,
-        vinodMemoryFiles: []
-      };
-    });
-  };
-
-  const handleMemoryMediaRemove = (fileId) => {
-    setForm((current) => {
-      const removedFile = current.vinodMemoryFiles.find((memoryFile) => memoryFile.id === fileId);
-
-      if (removedFile) {
-        URL.revokeObjectURL(removedFile.previewUrl);
-      }
-
-      return {
-        ...current,
-        vinodMemoryFiles: current.vinodMemoryFiles.filter((memoryFile) => memoryFile.id !== fileId)
-      };
-    });
-  };
-
   const validateEntryIdentity = () => {
     const id = makeEntryId(form.name, form.admissionNumber);
 
@@ -1106,7 +895,6 @@ export default function App() {
       const data = await createEntry(form);
       const nextEntries = [data.entry, ...entries];
 
-      form.vinodMemoryFiles.forEach((memoryFile) => URL.revokeObjectURL(memoryFile.previewUrl));
       setEntries(nextEntries);
       setSelectedId(data.entry.id);
       setForm(buildFormForSession(session));
@@ -1214,9 +1002,6 @@ export default function App() {
                 form={form}
                 onBack={() => setPageWithTurn("page2", "back")}
                 onChange={handleChange}
-                onMediaChange={handleMemoryMediaChange}
-                onMediaClear={handleMemoryMediaClear}
-                onMediaRemove={handleMemoryMediaRemove}
                 onSave={handleSave}
                 error={error}
                 success={success}

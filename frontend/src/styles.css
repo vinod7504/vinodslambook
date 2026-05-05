@@ -796,157 +796,10 @@ button:disabled {
   min-height: 150px;
 }
 
-.memoryMediaField {
-  min-width: 0;
-  display: grid;
-  gap: 9px;
-}
-
-.memoryMediaField > span,
 .memoryTextCard span {
   color: #6b3a48;
   font-size: 0.84rem;
   font-weight: 900;
-}
-
-.memoryMediaPicker {
-  min-height: 270px;
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  border: 2px dashed rgba(124, 37, 59, 0.32);
-  border-radius: 8px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.56), rgba(215, 168, 62, 0.16)),
-    rgba(255, 249, 237, 0.7);
-  cursor: pointer;
-  padding: 14px;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease,
-    background 180ms ease;
-}
-
-.memoryMediaPicker:hover {
-  border-color: rgba(34, 93, 125, 0.48);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(77, 143, 120, 0.14)),
-    rgba(255, 249, 237, 0.82);
-  box-shadow: 0 14px 22px rgba(85, 46, 31, 0.12);
-  transform: translateY(-1px);
-}
-
-.memoryMediaPicker input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.memoryMediaPicker strong {
-  color: var(--berry);
-  font-weight: 900;
-  position: relative;
-  z-index: 1;
-}
-
-.memoryMediaPicker strong::before {
-  content: "";
-  width: 44px;
-  height: 44px;
-  display: block;
-  margin: 0 auto 10px;
-  border: 2px solid rgba(124, 37, 59, 0.32);
-  border-radius: 50%;
-  background:
-    linear-gradient(var(--berry), var(--berry)) center / 18px 3px no-repeat,
-    linear-gradient(var(--berry), var(--berry)) center / 3px 18px no-repeat,
-    rgba(255, 255, 255, 0.62);
-}
-
-.memoryMediaPicker img,
-.memoryMediaPicker video {
-  width: 100%;
-  max-height: 300px;
-  border-radius: 6px;
-  object-fit: contain;
-  background: #26191e;
-}
-
-.memoryMediaMeta {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.memoryMediaMeta small {
-  min-width: 0;
-  color: rgba(47, 29, 35, 0.72);
-  font-weight: 800;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mediaRemoveButton {
-  min-height: 36px;
-  flex: 0 0 auto;
-  padding: 0 12px;
-}
-
-.memoryMediaGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.memoryMediaTile,
-.savedMemoryFile {
-  min-width: 0;
-  display: grid;
-  gap: 10px;
-  border: 1px solid rgba(124, 37, 59, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.52);
-  box-shadow: 0 12px 22px rgba(85, 46, 31, 0.1);
-  padding: 10px;
-}
-
-.memoryMediaTile img,
-.memoryMediaTile video {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  border-radius: 6px;
-  object-fit: cover;
-  background: #26191e;
-}
-
-.memoryMediaTile div,
-.savedMemoryFile div {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.memoryMediaTile strong,
-.savedMemoryFile strong {
-  min-width: 0;
-  color: var(--berry);
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.memoryMediaTile small,
-.savedMemoryFile small {
-  color: rgba(47, 29, 35, 0.66);
-  font-size: 0.78rem;
-  font-weight: 800;
 }
 
 .memorySavedContent {
@@ -972,56 +825,6 @@ button:disabled {
   line-height: 1.55;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-}
-
-.memoryMediaDisplay {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-}
-
-.savedMemoryFile img,
-.savedMemoryFile video,
-.savedMemoryIcon {
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 420px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: #26191e;
-  box-shadow: 0 16px 24px rgba(85, 46, 31, 0.16);
-}
-
-.savedMemoryIcon {
-  display: grid;
-  place-items: center;
-  color: #fffaf0;
-  font-weight: 900;
-  background:
-    linear-gradient(135deg, rgba(124, 37, 59, 0.86), rgba(34, 93, 125, 0.86)),
-    #26191e;
-}
-
-.driveLink {
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  color: #fffaf0;
-  background: linear-gradient(135deg, var(--blue), var(--teal));
-  font-size: 0.84rem;
-  font-weight: 900;
-  text-decoration: none;
-  transition:
-    transform 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.driveLink:hover {
-  box-shadow: 0 10px 18px rgba(34, 93, 125, 0.18);
-  transform: translateY(-1px);
 }
 
 .pageActions {
@@ -1663,10 +1466,6 @@ button:disabled {
     min-height: 132px;
   }
 
-  .memoryMediaPicker {
-    min-height: 190px;
-  }
-
   .memorySavedContent {
     gap: 14px;
     padding-left: 0;
@@ -1694,33 +1493,6 @@ button:disabled {
   .ghostButton,
   .deleteButton {
     padding: 0 14px;
-  }
-
-  .memoryMediaMeta {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .mediaRemoveButton {
-    width: 100%;
-  }
-
-  .memoryMediaGrid,
-  .memoryMediaDisplay {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .memoryMediaTile strong,
-  .savedMemoryFile strong {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  .savedMemoryFile img,
-  .savedMemoryFile video,
-  .savedMemoryIcon {
-    max-height: none;
   }
 
   .savedShelf {
@@ -1886,16 +1658,6 @@ button:disabled {
     padding: 9px 7px;
   }
 
-  .memoryMediaPicker {
-    min-height: 164px;
-  }
-
-  .memoryMediaPicker strong::before {
-    width: 38px;
-    height: 38px;
-    margin-bottom: 8px;
-  }
-
   .memoryTextCard {
     padding: 13px;
   }
@@ -1912,8 +1674,7 @@ button:disabled {
 
   .primaryButton,
   .ghostButton,
-  .deleteButton,
-  .driveLink {
+  .deleteButton {
     width: 100%;
     min-height: 46px;
   }

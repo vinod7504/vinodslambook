@@ -1,10 +1,7 @@
 import { createServer } from "node:http";
 import process from "node:process";
-import { Readable } from "node:stream";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import Busboy from "busboy";
-import { google } from "googleapis";
 import { MongoClient, ServerApiVersion } from "mongodb";
 
 const backendDirectory = dirname(fileURLToPath(import.meta.url));
@@ -19,12 +16,9 @@ try {
 
 const PORT = process.env.PORT || 4000;
 const MAX_JSON_BODY_BYTES = 15 * 1024 * 1024;
-const MAX_MULTIPART_BODY_BYTES = 500 * 1024 * 1024;
-const MAX_MEMORY_FILE_BYTES = 100 * 1024 * 1024;
 const MONGODB_URI = process.env.MONGODB_URI;
 const DATABASE_NAME = process.env.MONGODB_DATABASE || "slam_book";
 const COLLECTION_NAME = process.env.MONGODB_COLLECTION || "entries";
-const DRIVE_PARENT_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const MONGODB_SERVER_SELECTION_TIMEOUT_MS = Number(
@@ -46,7 +40,6 @@ const mongoClient = new MongoClient(MONGODB_URI, {
   }
 });
 let entriesCollectionPromise;
-let driveClientPromise;
 
 const allowedFields = [
   "name",
@@ -98,36 +91,6 @@ function isAdminRequest(request) {
   );
 }
 
-function getContentType(request) {
-  return request.headers["content-type"] || "";
-}
-
-function escapeDriveQueryValue(value) {
-  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-}
-
-function getAdmissionFolderName(admissionNumber) {
-  return admissionNumber.replace(/[\\/]/g, "-").trim();
-}
-
-function getFileExtension(filename) {
-  const safeName = String(filename || "").replace(/[\\/]/g, "-").trim();
-  const extensionStart = safeName.lastIndexOf(".");
-
-  if (extensionStart <= 0 || extensionStart === safeName.length - 1) {
-    return "";
-  }
-
-  return safeName.slice(extensionStart);
-}
-
-function getAdmissionFileName(admissionNumber, file, index, totalFiles) {
-  const baseName = getAdmissionFolderName(admissionNumber) || `memory-${index + 1}`;
-  const suffix = totalFiles > 1 ? `-${String(index + 1).padStart(2, "0")}` : "";
-
-  return `${baseName}${suffix}${getFileExtension(file.filename)}`;
-}
-
 async function getEntriesCollection() {
   if (!entriesCollectionPromise) {
     entriesCollectionPromise = mongoClient
@@ -150,8 +113,7 @@ async function getHealthPayload(deep = false) {
   const payload = {
     ok: true,
     nodeVersion: process.version,
-    mongoConfigured: Boolean(MONGODB_URI),
-    driveConfigured: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_FILE)
+    mongoConfigured: Boolean(MONGODB_URI)
   };
 
   if (!deep) {
@@ -173,130 +135,32 @@ async function getHealthPayload(deep = false) {
   return payload;
 }
 
-async function getDriveClient() {
-  if (!driveClientPromise) {
-    const authOptions = {
-      scopes: ["https://www.googleapis.com/auth/drive"]
-    };
-
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-
-      if (credentials.private_key) {
-        credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
-      }
-
-      authOptions.credentials = credentials;
-    } else if (process.env.GOOGLE_SERVICE_ACCOUNT_FILE) {
-      authOptions.keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_FILE;
-    } else {
-      throw new Error(
-        "Google Drive credentials are not configured. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_SERVICE_ACCOUNT_FILE and share the Drive folder with that service account."
-      );
-    }
-
-    const auth = new google.auth.GoogleAuth(authOptions);
-    driveClientPromise = auth.getClient().then((authClient) =>
-      google.drive({ version: "v3", auth: authClient })
-    );
-  }
-
-  return driveClientPromise;
-}
-
 function serializeEntry(entry) {
-  const { _id, ...publicEntry } = entry;
   return {
     admissionNumber: "",
-    vinodMemoryFiles: [],
-    ...publicEntry
+    ...entry
   };
 }
 
 async function readEntries() {
   const collection = await getEntriesCollection();
   const entries = await collection
-    .find({}, { projection: { _id: 0 } })
+    .find(
+      {},
+      {
+        projection: {
+          _id: 0,
+          vinodMemoryFiles: 0,
+          vinodMemoryMedia: 0,
+          vinodMemoryMediaName: 0,
+          vinodMemoryMediaType: 0
+        }
+      }
+    )
     .sort({ createdAt: -1 })
     .toArray();
 
   return entries.map(serializeEntry);
-}
-
-async function getOrCreateAdmissionFolder(admissionNumber) {
-  if (!DRIVE_PARENT_FOLDER_ID) {
-    throw new Error("GOOGLE_DRIVE_PARENT_FOLDER_ID is required to upload memory files to Google Drive.");
-  }
-
-  const drive = await getDriveClient();
-  const folderName = getAdmissionFolderName(admissionNumber);
-  const escapedName = escapeDriveQueryValue(folderName);
-  const escapedParentId = escapeDriveQueryValue(DRIVE_PARENT_FOLDER_ID);
-  const existingFolders = await drive.files.list({
-    q: `'${escapedParentId}' in parents and name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id,name,webViewLink)",
-    includeItemsFromAllDrives: true,
-    supportsAllDrives: true
-  });
-
-  if (existingFolders.data.files?.[0]) {
-    return existingFolders.data.files[0];
-  }
-
-  const createdFolder = await drive.files.create({
-    requestBody: {
-      name: folderName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [DRIVE_PARENT_FOLDER_ID]
-    },
-    fields: "id,name,webViewLink",
-    supportsAllDrives: true
-  });
-
-  return createdFolder.data;
-}
-
-async function uploadMemoryFilesToDrive(admissionNumber, memoryFiles) {
-  if (memoryFiles.length === 0) {
-    return [];
-  }
-
-  const drive = await getDriveClient();
-  const folder = await getOrCreateAdmissionFolder(admissionNumber);
-
-  const uploadedFiles = [];
-
-  for (const [index, file] of memoryFiles.entries()) {
-    const driveFileName = getAdmissionFileName(admissionNumber, file, index, memoryFiles.length);
-    const uploadedFile = await drive.files.create({
-      requestBody: {
-        name: driveFileName,
-        parents: [folder.id]
-      },
-      media: {
-        mimeType: file.mimeType,
-        body: Readable.from(file.buffer)
-      },
-      fields: "id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink,createdTime",
-      supportsAllDrives: true
-    });
-
-    uploadedFiles.push({
-      driveFileId: uploadedFile.data.id,
-      folderId: folder.id,
-      folderName: folder.name,
-      name: uploadedFile.data.name,
-      originalName: file.filename,
-      mimeType: uploadedFile.data.mimeType || file.mimeType,
-      size: Number(uploadedFile.data.size || file.size || 0),
-      webViewLink: uploadedFile.data.webViewLink || "",
-      webContentLink: uploadedFile.data.webContentLink || "",
-      thumbnailLink: uploadedFile.data.thumbnailLink || "",
-      createdTime: uploadedFile.data.createdTime || new Date().toISOString()
-    });
-  }
-
-  return uploadedFiles;
 }
 
 function readJsonRequestBody(request) {
@@ -322,120 +186,6 @@ function readJsonRequestBody(request) {
 
     request.on("error", reject);
   });
-}
-
-function readMultipartEntryRequest(request) {
-  return new Promise((resolve, reject) => {
-    const contentLength = Number(request.headers["content-length"] || 0);
-
-    if (contentLength > MAX_MULTIPART_BODY_BYTES) {
-      reject(new Error("Memory upload is too large. Please upload smaller files."));
-      request.destroy();
-      return;
-    }
-
-    const fields = {};
-    const memoryFiles = [];
-    const pendingFiles = [];
-    const busboy = Busboy({
-      headers: request.headers,
-      limits: {
-        fileSize: MAX_MEMORY_FILE_BYTES
-      }
-    });
-    let settled = false;
-
-    const fail = (error) => {
-      if (!settled) {
-        settled = true;
-        reject(error);
-      }
-    };
-
-    busboy.on("field", (name, value) => {
-      fields[name] = value;
-    });
-
-    busboy.on("file", (name, file, info) => {
-      if (name !== "vinodMemoryFiles") {
-        file.resume();
-        return;
-      }
-
-      const mimeType = info.mimeType || "";
-
-      if (!mimeType.startsWith("image/") && !mimeType.startsWith("video/")) {
-        file.resume();
-        fail(new Error("Only image and video files can be added to memories."));
-        return;
-      }
-
-      const chunks = [];
-      let size = 0;
-      let fileTooLarge = false;
-      const filePromise = new Promise((resolveFile, rejectFile) => {
-        file.on("data", (chunk) => {
-          size += chunk.length;
-          chunks.push(chunk);
-        });
-
-        file.on("limit", () => {
-          fileTooLarge = true;
-          file.resume();
-        });
-
-        file.on("end", () => {
-          if (fileTooLarge) {
-            rejectFile(new Error(`${info.filename} is too large. Please keep each file under 100 MB.`));
-            return;
-          }
-
-          if (size > 0) {
-            memoryFiles.push({
-              filename: info.filename || "memory-file",
-              mimeType,
-              size,
-              buffer: Buffer.concat(chunks)
-            });
-          }
-
-          resolveFile();
-        });
-
-        file.on("error", rejectFile);
-      });
-
-      pendingFiles.push(filePromise);
-    });
-
-    busboy.on("finish", async () => {
-      try {
-        await Promise.all(pendingFiles);
-
-        if (!settled) {
-          settled = true;
-          resolve({ body: fields, memoryFiles });
-        }
-      } catch (error) {
-        fail(error);
-      }
-    });
-
-    busboy.on("error", fail);
-    request.on("error", fail);
-    request.pipe(busboy);
-  });
-}
-
-async function readEntryRequest(request) {
-  if (getContentType(request).includes("multipart/form-data")) {
-    return readMultipartEntryRequest(request);
-  }
-
-  return {
-    body: await readJsonRequestBody(request),
-    memoryFiles: []
-  };
 }
 
 function sanitizeEntry(body) {
@@ -478,7 +228,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/api/entries") {
-      const { body, memoryFiles } = await readEntryRequest(request);
+      const body = await readJsonRequestBody(request);
       const entry = sanitizeEntry(body);
       const id = slugify(`${entry.admissionNumber}-${entry.name}`);
 
@@ -499,10 +249,8 @@ const server = createServer(async (request, response) => {
         return;
       }
 
-      const vinodMemoryFiles = await uploadMemoryFilesToDrive(entry.admissionNumber, memoryFiles);
       const nextEntry = {
         ...entry,
-        vinodMemoryFiles,
         id,
         createdAt: new Date().toISOString()
       };
