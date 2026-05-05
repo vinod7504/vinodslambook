@@ -1,21 +1,36 @@
 import { createServer } from "node:http";
+import process from "node:process";
 import { Readable } from "node:stream";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import Busboy from "busboy";
 import { google } from "googleapis";
 import { MongoClient } from "mongodb";
+
+const backendDirectory = dirname(fileURLToPath(import.meta.url));
+
+try {
+  process.loadEnvFile?.(resolve(backendDirectory, ".env"));
+} catch (error) {
+  if (error?.code !== "ENOENT") {
+    throw error;
+  }
+}
 
 const PORT = process.env.PORT || 4000;
 const MAX_JSON_BODY_BYTES = 15 * 1024 * 1024;
 const MAX_MULTIPART_BODY_BYTES = 500 * 1024 * 1024;
 const MAX_MEMORY_FILE_BYTES = 100 * 1024 * 1024;
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb+srv://vinodkumar:vinodkumar@vinodslam.wlngpjf.mongodb.net/";
+const MONGODB_URI = process.env.MONGODB_URI;
 const DATABASE_NAME = process.env.MONGODB_DATABASE || "slam_book";
 const COLLECTION_NAME = process.env.MONGODB_COLLECTION || "entries";
-const DRIVE_PARENT_FOLDER_ID =
-  process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID || "10Rsqxb34E5ieionVJ5TtP1GAW7t4cdxg";
-const ADMIN_USERNAME = "Vinod7504";
-const ADMIN_PASSWORD = "Vinod@2004";
+const DRIVE_PARENT_FOLDER_ID = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI is required. Add it to backend/.env or your deployment environment.");
+}
 
 const mongoClient = new MongoClient(MONGODB_URI);
 let entriesCollectionPromise;
