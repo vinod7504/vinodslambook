@@ -589,6 +589,7 @@ button:disabled {
 .photoPicker input {
   position: absolute;
   inset: 0;
+  z-index: 2;
   opacity: 0;
   cursor: pointer;
 }
@@ -616,6 +617,11 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.photoPicker span,
+.photoPicker img {
+  pointer-events: none;
 }
 
 .formGrid {
