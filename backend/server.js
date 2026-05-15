@@ -97,7 +97,10 @@ async function getEntriesCollection() {
       .connect()
       .then(async (client) => {
         const collection = client.db(DATABASE_NAME).collection(COLLECTION_NAME);
-        await collection.createIndex({ id: 1 }, { unique: true });
+        await Promise.all([
+          collection.createIndex({ id: 1 }, { unique: true }),
+          collection.createIndex({ createdAt: -1 })
+        ]);
         return collection;
       })
       .catch((error) => {
